@@ -11,6 +11,13 @@ LOGFILE=/tmp/juju-controller-backup.log
 KEEPCOUNT=10
 DESTDIR=.
 NOW=$(date +%Y%m%d-%H%M%S)
+SLACKWEBHOOK=
+
+send_slack() {
+    if [ -n "$SLACKWEBHOOK" ]; then
+        ./slack-notifier.py -w "$SLACKWEBHOOK" -m "$1"
+    fi
+}
 
 # Logging function, courtesy of cdarke:
 # https://stackoverflow.com/questions/49851882/how-to-log-echo-statement-with-timestamp-in-shell-script/
@@ -31,7 +38,9 @@ echo "$0" starting.
 
 # Verify that the controller argument only contains letters etc
 if ! echo "$1" | grep -Eq '^([A-Za-z0-9-]+)$' ; then
-    echo Controller argument is invalid, exiting
+    msg="Controller argument is invalid, exiting"
+    echo $msg
+    send_slack "$msg"
     exit 1
 fi
 
@@ -41,7 +50,9 @@ DESTDIR="$DESTDIR"/"$JUJUCONTROLLER"
 # Check access
 timeout 3 $JUJU status --model="$JUJUCONTROLLER":admin/controller > /dev/null 2>&1
 if ! [ $? -eq 0 ]; then
-    echo "Cannot check status of controller model on "$JUJUCONTROLLER", exiting"
+    msg="Cannot check status of controller model on "$JUJUCONTROLLER", exiting"
+    echo $msg
+    send_slack "$msg"
     exit 1 
 fi
 
@@ -52,11 +63,17 @@ mkdir -p "$DESTDIR"
     > "$DESTDIR"/juju-backup_"$JUJUCONTROLLER"_"$NOW".tar.gz.out 2>&1
 BACKUPRET=$?
 
-# Always append the output to the log
-cat "$DESTDIR"/juju-backup_"$JUJUCONTROLLER"_"$NOW".tar.gz.out >> $LOGFILE
+# Get backup result
+backup_result=$(cat "$DESTDIR"/juju-backup_"$JUJUCONTROLLER"_"$NOW".tar.gz.out)
+
+# Always append the result to the log
+echo $backup_result >> $LOGFILE
 
 if [ $BACKUPRET -ne 0 ] ; then
-    echo Backup failed, exiting
+    msg="Backup failed, exiting"
+    echo $msg
+    send_slack "$msg"
+    send_slack "$backup_result"
     exit 1
 fi
 
@@ -69,4 +86,6 @@ for i in $(find "$DESTDIR" -type f -name '*.tar.gz' | sort | head -n -$KEEPCOUNT
     fi
 done
 
+send_slack "Backup success!"
+send_slack "$backup_result"
 echo "$0" exiting.
