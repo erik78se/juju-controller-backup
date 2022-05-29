@@ -60,7 +60,7 @@ mkdir -p "$DESTDIR"
 
 "$JUJU" create-backup --model="$JUJUCONTROLLER":admin/controller \
     --filename="$DESTDIR"/juju-backup_"$JUJUCONTROLLER"_"$NOW".tar.gz \
-    > "$DESTDIR"/juju-backup_"$JUJUCONTROLLER"_"$NOW".tar.gz.out 2>&1
+    2>&1 | tee "$DESTDIR"/juju-backup_"$JUJUCONTROLLER"_"$NOW".tar.gz.out
 BACKUPRET=$?
 
 # Get backup result
