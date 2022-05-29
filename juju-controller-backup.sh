@@ -50,7 +50,8 @@ DESTDIR="$DESTDIR"/"$JUJUCONTROLLER"
 # Check access
 timeout 3 $JUJU status --model="$JUJUCONTROLLER":admin/controller > /dev/null 2>&1
 if ! [ $? -eq 0 ]; then
-    msg="Cannot check status of controller model on "$JUJUCONTROLLER", exiting"
+    msg="Backup of $JUJUCONTROLLER FAILED!
+    Cannot check status of controller model on $JUJUCONTROLLER"
     echo $msg
     send_slack "$msg"
     exit 1 
@@ -60,7 +61,7 @@ mkdir -p "$DESTDIR"
 
 "$JUJU" create-backup --model="$JUJUCONTROLLER":admin/controller \
     --filename="$DESTDIR"/juju-backup_"$JUJUCONTROLLER"_"$NOW".tar.gz \
-    > "$DESTDIR"/juju-backup_"$JUJUCONTROLLER"_"$NOW".tar.gz.out 2>&1
+    2>&1 | tee "$DESTDIR"/juju-backup_"$JUJUCONTROLLER"_"$NOW".tar.gz.out
 BACKUPRET=$?
 
 # Get backup result
@@ -70,10 +71,10 @@ backup_result=$(cat "$DESTDIR"/juju-backup_"$JUJUCONTROLLER"_"$NOW".tar.gz.out)
 echo $backup_result >> $LOGFILE
 
 if [ $BACKUPRET -ne 0 ] ; then
-    msg="Backup failed, exiting"
+    msg="Backup of $JUJUCONTROLLER FAILED!
+    $backup_result"
     echo $msg
     send_slack "$msg"
-    send_slack "$backup_result"
     exit 1
 fi
 
@@ -86,6 +87,6 @@ for i in $(find "$DESTDIR" -type f -name '*.tar.gz' | sort | head -n -$KEEPCOUNT
     fi
 done
 
-send_slack "Backup success!"
-send_slack "$backup_result"
+send_slack "Backup of $JUJUCONTROLLER SUCCEEDED!
+$backup_result"
 echo "$0" exiting.
